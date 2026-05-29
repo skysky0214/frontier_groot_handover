@@ -183,3 +183,4 @@ export PATH=/tmp/fake_cuda/bin:$PATH
 - **docker commit / containerd 이미지 스토어 손상** — 이전에 image layer digest 손실로 commit 실패. `docker export` (live FS 읽음) 가 우회로.
 - **`*.usd` 가 robotis_lab .gitignore 에 포함** — fork 에 USD 추가할 일 있으면 `git add -f` 또는 .gitignore 예외 추가. 5_floor.usd 는 frontier_simulation 쪽에 -f 로 들어가 있음.
 - **컨테이너 내부 git 미설치** — git 작업은 호스트에서.
+- **`elevator_button_press_task` clone 시 LFS 경고** — `source/robotis_lab/data/{object,robots}/*.usd` 16개가 "should have been pointers but weren't" 로 뜸. 이전 작업물(우리 변경과 무관). 실제 파일은 존재하지만 LFS 추적 메타와 어긋난 상태. 그 USD 들을 실제로 쓸 때 문제 생기면 LFS pull 또는 .gitattributes 정리.
