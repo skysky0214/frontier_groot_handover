@@ -94,9 +94,8 @@ NVIDIA가 공개한 [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T)의 fork
 
 ROBOTIS가 공개한 [robotis_lab](https://github.com/ROBOTIS-GIT/robotis_lab)의 fork.
 
-> **이름이 왜 이상한가?** 이 fork는 원래 ACT(Action Chunking Transformer) 시절, 엘리베이터 task만 신경 쓸 때 만들어진 이름이다. 내용물은 robotis_lab 전체 트리이므로 이름에 혼동되지 말 것.
 
-GR00T용으로 우리가 추가·수정한 주요 파일:
+GR00T용으로 추가·수정한 주요 파일:
 
 | 파일/폴더 | 설명 |
 |---|---|
