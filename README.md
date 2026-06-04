@@ -1,7 +1,8 @@
 # frontier_groot_handover
 
-Handoff entrypoint for the Frontier-GROOT button-press pipeline.
-This repo holds no code — it clones and wires up the 3 forks that contain the actual work.
+
+Frontier-GR00T 버튼 누르기 파이프라인 인수인계 진입점.
+이 레포에는 코드가 없으며, 실제 작업이 담긴 세 개의 fork를 clone하고 연결한다.
 
 **Start here:** [HANDOFF.md](HANDOFF.md)
 
