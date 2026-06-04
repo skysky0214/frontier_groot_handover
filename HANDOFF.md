@@ -67,11 +67,10 @@ export TRT_ENGINE="${DATA_ROOT}/trt_${RUN_NAME}/dit_model_bf16.trt"
 # ── GR00T 코드 루트 ──────────────────────────────────────────────────────────
 export GROOT_ROOT="${DATA_ROOT}/Isaac-GR00T"      # NFS working tree 경로
 ```
-
 ---
 
 ## 코드 구조 
-코드가 세 레포에 흩어진 이유- 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
+코드가 세 레포에 흩어진 이유가 있다. 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
 
 ### 1. `skysky0214/Isaac-GR00T` (브랜치: `frontier_groot`)
 
@@ -227,18 +226,28 @@ pip install ikpy
 ```
 
 컨테이너를 재시작해도 pip 설치는 유지되므로 최초 1회만 하면 된다.
-PYTHONPATH — isaac_sim 패키지 인식시키기
+
+### PYTHONPATH — `isaac_sim` 패키지 인식시키기
+
 task를 실행하다 보면 아래 에러가 처음 나올 수 있다.
+
+```
 ModuleNotFoundError: No module named 'isaac_sim'
-왜 나는가: _v2_aux task가 내부적으로 isaac_sim이라는 패키지를 import하는데, 이 패키지는 frontier_simulation 레포(feature-zenoh-inference-groot 브랜치)의 source/isaac_sim 폴더에 있다. robotis_lab 컨테이너에는 이 레포가 마운트되어 있지 않으므로 Python이 패키지를 찾지 못한다.
-해결 방법:
-bash# 1. frontier_simulation 레포를 받아둔 곳에서 source/isaac_sim을 복사 (최초 1회)
+```
+
+**왜 나는가**: `_v2_aux` task가 내부적으로 `isaac_sim`이라는 패키지를 import하는데, 이 패키지는 `frontier_simulation` 레포(`feature-zenoh-inference-groot` 브랜치)의 `source/isaac_sim` 폴더에 있다. robotis_lab 컨테이너에는 이 레포가 마운트되어 있지 않으므로 Python이 패키지를 찾지 못한다.
+
+**해결 방법**:
+
+```bash
+# 1. frontier_simulation 레포를 받아둔 곳에서 source/isaac_sim을 복사 (최초 1회)
 cp -r /path/to/frontier_simulation/source/isaac_sim /workspace/robotis_lab/source/
 
 # 2. 복사한 경로를 PYTHONPATH에 등록
 export PYTHONPATH=/workspace/robotis_lab/source
-isaaclab.sh -p로 스크립트를 실행할 때 이 환경변수가 그대로 전달된다.
 ```
+
+`isaaclab.sh -p`로 스크립트를 실행할 때 이 환경변수가 그대로 전달된다.
 
 ### ELEVATOR_USD_DIR — USD 경로 하드코딩 우회
 
