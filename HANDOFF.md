@@ -256,7 +256,7 @@ export PYTHONPATH=/workspace/robotis_lab/source
 **해결**: 환경변수로 override할 수 있도록 코드가 수정되어 있다. 실행 전 실제 USD가 있는 경로를 지정해주면 된다.
 
 ```bash
-# 엘리베이터 USD 100개가 있는 경로로 지정
+# 엘리베이터 USD가 있는 경로로 지정
 export ELEVATOR_USD_DIR=/workspace/robotis_lab/third_party/elevator_setup
 ```
 
