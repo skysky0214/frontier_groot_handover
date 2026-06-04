@@ -255,20 +255,6 @@ export PATH=/tmp/fake_cuda/bin:$PATH
 
 변경 시 **둘 다 동기화**해야 학습에 반영된다. 한쪽만 바꾸면 왜 반영이 안 되는지 한참 헤맬 수 있다.
 
----
-
-## 현재 진행 상황
-
-- 데이터 변형(스폰 jitter 범위, LED 처리 방식 등) 별로 여러 변종을 만들어 비교 중
-- 일부 데이터셋을 합친 combined 학습이 진행 중이었으나 미완
-- TensorRT 변환: 가장 안정적인 ckpt 하나로 빌드해서 동작 확인 완료
-- 코드 정리 완료: 절대 경로 환경변수화, `inference_demos.py` 모듈화(888줄), 운영 로그 `VERBOSE=0` 제어 가능
-
-### 남은 작업
-
-- Combined 학습 완료 후 평가
-- 가치 있는 ckpt와 데이터셋을 HuggingFace Hub으로 이전 (현재 NFS 사본만 존재, 인스턴스 장애 시 위험)
-- 실기 로봇 이식 검토 — 현재까지 전부 시뮬. sim2real gap, latency, contact 처리 등 검증 필요
 
 ---
 
