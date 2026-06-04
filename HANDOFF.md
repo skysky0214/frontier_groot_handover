@@ -2,12 +2,11 @@
 
 ## 이 문서를 읽기 전에
 
-```
 시뮬에서 로봇이 버튼 누르는 장면을 자동으로 녹화
     → 녹화 데이터를 학습 형식으로 변환
         → AI 모델(GR00T)을 그 데이터로 fine-tune
             → 시뮬에서 학습된 모델로 실제 동작 평가
-```
+
 
 코드는 전혀 없는 **인수인계 전용 레포**이고, `./setup.sh` 한 번으로 실제 코드가 담긴 세 레포가 자동으로 받아진다.
 
@@ -94,8 +93,9 @@ NVIDIA가 공개한 [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T)의 fork
 
 ROBOTIS가 공개한 [robotis_lab](https://github.com/ROBOTIS-GIT/robotis_lab)의 fork.
 
+> **이름이 왜 이상한가?** 이 fork는 원래 ACT(Action Chunking Transformer) 시절, 엘리베이터 task만 신경 쓸 때 만들어진 이름이다. 내용물은 robotis_lab 전체 트리이므로 이름에 혼동되지 말 것.
 
-GR00T용으로 추가·수정한 주요 파일:
+GR00T용으로 우리가 추가·수정한 주요 파일:
 
 | 파일/폴더 | 설명 |
 |---|---|
@@ -224,6 +224,16 @@ docker start isaac-sim
 
 > **순서 주의**: NFS를 호스트에 먼저 마운트한 뒤 컨테이너를 켜야 컨테이너 안에서 데이터 폴더가 보인다. 순서가 바뀌면 컨테이너를 재시작해야 한다.
 
+### Python 패키지 의존성
+
+컨테이너 기동 후, 데모 수집(1단계) 실행 전에 아래 패키지를 설치해야 한다. teacher 스크립트의 IK 계산에 사용된다.
+
+```bash
+pip install ikpy
+```
+
+컨테이너를 재시작해도 pip 설치는 유지되므로 최초 1회만 하면 된다.
+
 ### GPU 주의사항
 
 - **권장**: RTX PRO 6000 Blackwell (SM 12.0) 계열
@@ -255,6 +265,20 @@ export PATH=/tmp/fake_cuda/bin:$PATH
 
 변경 시 **둘 다 동기화**해야 학습에 반영된다. 한쪽만 바꾸면 왜 반영이 안 되는지 한참 헤맬 수 있다.
 
+---
+
+## 현재 진행 상황
+
+- 데이터 변형(스폰 jitter 범위, LED 처리 방식 등) 별로 여러 변종을 만들어 비교 중
+- 일부 데이터셋을 합친 combined 학습이 진행 중이었으나 미완
+- TensorRT 변환: 가장 안정적인 ckpt 하나로 빌드해서 동작 확인 완료
+- 코드 정리 완료: 절대 경로 환경변수화, `inference_demos.py` 모듈화(888줄), 운영 로그 `VERBOSE=0` 제어 가능
+
+### 남은 작업
+
+- Combined 학습 완료 후 평가
+- 가치 있는 ckpt와 데이터셋을 HuggingFace Hub으로 이전 (현재 NFS 사본만 존재, 인스턴스 장애 시 위험)
+- 실기 로봇 이식 검토 — 현재까지 전부 시뮬. sim2real gap, latency, contact 처리 등 검증 필요
 
 ---
 
