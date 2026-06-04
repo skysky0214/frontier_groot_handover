@@ -1,27 +1,38 @@
-# Frontier-GR00T 엘리베이터 누르기 인수인계
+# Frontier-GR00T 엘리베이터 버튼 누르기 — 인수인계
 
-이 레포 자체엔 코드가 없다. clone 하고 `./setup.sh` 만 돌리면 작업이 흩어져 있던 세 레포가
-알맞은 브랜치로 받아져서 환경이 복원된다.
+## 이 문서를 읽기 전에
 
-## 뭐 하던 작업인지
+```
+시뮬에서 로봇이 버튼 누르는 장면을 자동으로 녹화
+    → 녹화 데이터를 학습 형식으로 변환
+        → AI 모델(GR00T)을 그 데이터로 fine-tune
+            → 시뮬에서 학습된 모델로 실제 동작 평가
+```
 
-ROBOTIS 의 **Frontier** 로봇(바퀴 달린 모바일 베이스 위에 OMY 6축 로봇팔이 얹힌 형태)이
-실내에서 엘리베이터 호출 버튼을 정확히 누르는 동작을 학습시키는 작업이다. 학습 모델은
-NVIDIA 의 **GR00T VLA**(Vision-Language-Action 모델, N1.6 릴리스)를 우리 데이터로
-fine-tune 한다.
+코드는 전혀 없는 **인수인계 전용 레포**이고, `./setup.sh` 한 번으로 실제 코드가 담긴 세 레포가 자동으로 받아진다.
 
-전 과정이 Isaac Sim 시뮬레이션 안에서 닫혀 있다. 즉:
+---
 
-1. 시뮬에서 IK 기반 teacher 스크립트로 데모를 자동 수집
-2. 수집된 HDF5 를 LeRobot v2.1 데이터셋 포맷으로 변환
-3. GR00T 를 그 데이터셋으로 fine-tune
-4. 시뮬을 다시 띄워서 학습된 정책으로 추론·평가
+## 프로젝트 개요
 
-실기 로봇으로는 아직 안 옮겼다. 추론은 한 프로세스가 아니라 세 프로세스가 협업한다 —
-GR00T 모델 서버, 시뮬과 서버를 잇는 Zenoh 브리지(DDS pub/sub 기반 통신), Isaac Sim 환경
-자체. 셋 다 떠 있어야 한 스텝이 돈다.
+### 무엇을 만드는가
 
-## 빠르게 시작
+ROBOTIS의 **Frontier** 로봇(바퀴 달린 모바일 베이스 위에 OMY 6축 로봇팔이 얹힌 형태)이 실내에서 엘리베이터 호출 버튼을 정확히 누르도록 학습시키는 것이 목표다.
+
+학습 모델은 NVIDIA의 **GR00T VLA**(Vision-Language-Action 모델, N1.6 릴리스)를 우리 데이터로 fine-tune한 것이다.
+
+### 전체 흐름이 시뮬 안에서 닫혀 있다
+
+실제 로봇 없이 Isaac Sim 시뮬레이터 안에서 모든 과정이 돌아간다.
+
+- **데모 수집**: IK(역기구학) 기반 teacher 스크립트가 자동으로 로봇 시연 영상을 생성
+- **데이터 변환**: 수집된 데이터(HDF5)를 LeRobot v2.1 포맷으로 변환
+- **학습**: GR00T 모델을 그 데이터로 fine-tune
+- **평가**: 시뮬을 다시 띄워서 학습된 모델이 버튼을 제대로 누르는지 확인
+
+---
+
+## 빠른 시작
 
 ```bash
 git clone git@github.com:skysky0214/frontier_groot_handover.git
@@ -29,188 +40,201 @@ cd frontier_groot_handover
 ./setup.sh
 ```
 
-`setup.sh` 가 아래 세 레포를 `repos/` 아래 받아 알맞은 브랜치로 체크아웃한다. 그 다음
-DataCrunch NFS 마운트, 컨테이너 기동, 4단계 파이프라인 순으로 진행하면 된다. 환경 셋업
-디테일은 뒤에.
+`setup.sh`가 아래 세 레포를 `repos/` 아래 받고 올바른 브랜치로 체크아웃한다.
 
-## 코드 위치 (세 레포)
+이후 순서: **환경 변수 설정 → 인프라 기동 → 4단계 파이프라인**
 
-코드가 세 레포로 나뉘어 있는데, 의도가 있다. 각각 다른 upstream 을 따라가야 해서 한 곳에
-모을 수 없었다.
+---
 
-**`skysky0214/Isaac-GR00T` — GR00T 모델 코드 (브랜치 `frontier_groot`)**
+## 환경 변수 먼저 설정하기
 
-NVIDIA 가 공개한 [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T) 의 fork. `n1.6-release`
-태그 위에 5 커밋만 얹은 가벼운 변경. 추가한 건 학습 옵션 하나(`view_dropout` — 학습 중
-일부 카메라 view 를 무작위로 dropout 해서 특정 카메라에 과의존하지 않게 함), TensorRT
-엔진 경로 옵션, 모델 forward 의 timing 로깅, OMY 로봇용 모달리티 config 예시 폴더.
-
-**`skysky0214/elevator_button_press_task` — Isaac Sim 환경·운영 코드 (브랜치 `frontier_groot`)**
-
-ROBOTIS 가 공개한 [robotis_lab](https://github.com/ROBOTIS-GIT/robotis_lab) 의 fork. 이름이
-좀 안 맞는 건 이 fork 가 원래 ACT(Action Chunking Transformer) 모방학습 시절 그 task 만
-신경 쓰고 떴던 이름이기 때문이다. 내용물은 robotis_lab 전체 트리 그대로. 우리가 GR00T 용
-으로 추가·수정한 것:
-
-- `source/.../assets/robots/Frontier.py` — Frontier 로봇 자산 정의 (USD 경로, 관절 한계,
-  액추에이터 등)
-- `source/.../OMY/elevator_call_v2_aux/` — GR00T 학습용 Isaac Lab task 정의. 기존
-  `elevator_call/` 에 보조 관측(버튼이 카메라에 찍힌 픽셀 좌표 등)을 더한 버전이라
-  이름이 `_v2_aux`
-- `scripts/data_conversion/hdf5_to_v1.py` — 수집된 HDF5 를 LeRobot v2.1 로 변환
-- `scripts/sim2real/imitation_learning/inference/inference_demos.py` + 같은 디렉토리의
-  `inference_helpers/` 패키지 — Isaac Sim 환경을 띄우고 학습된 정책을 돌려보는 평가
-  스크립트. 원래 1800줄짜리 한 파일이었는데 main 함수를 7개 helper 모듈(`viz`, `dump`,
-  `ik_fallback`, `elevator_5floor`, `collision`, `env_setup`, `frontier_setup`)로 쪼개서
-  지금은 888줄
-- `configs/modality/omy_config.py` 등 — GR00T 모달리티 정의 (어떤 카메라 3개, 어떤 state,
-  어떤 action 차원)
-
-**`ROBOTIS-move/frontier_simulation` — 회사 내부 시뮬 인프라 (두 브랜치)**
-
-ROBOTIS-move org 의 내부 레포라 같은 조직 멤버여야 접근 가능. 두 브랜치를 쓴다.
-
-- `feature-frontier-teacher` — 데모 수집 teacher 스크립트(PR #15). 처음엔 한 파일짜리
-  monolith 였는데 모듈화된 형태로 정리. 진입점 `script/isaac_sim/example/diffik_teacher_jointpos_frontier.py`
-  + `frontier_helpers/` 패키지 (`ik.py`, `elevator.py`, `cam_overrides.py`, `collision.py`).
-- `feature-zenoh-inference-groot` — 추론 시 시뮬과 모델 서버 사이를 잇는 Zenoh 브리지,
-  그리고 학습·평가에 쓰는 5층 엘리베이터 USD 자산. `script/isaac_sim/zenoh/zenoh_inference.py`,
-  `policies/groot_policy.py`, `source/isaac_sim/assets/elevator/5_floor.usd`.
-
-robotis_lab fork 안에는 ACT 모방학습 시절(이 fork 의 초기 작업)에 만들어둔 자산이 그대로
-남아 있다 — 옛 teacher 두 개, 옛 task 정의(`elevator_call/`), ACT 로 학습한 체크포인트
-약 376MB. GR00T 파이프라인은 안 쓰지만 일부러 안 지웠다. ACT 시절 결과를 재현해야 할 때를
-대비.
-
-## 데이터·체크포인트는 NFS 에
-
-학습 데이터, 변환본, 체크포인트는 git 에 안 들어가고 별도의 NFS 볼륨에 있다. DataCrunch
-(GPU 클라우드 제공자) 가 호스팅하는 `nfs.fin-03.datacrunch.io:/Dataset-789fd28b` 를 호스트와
-컨테이너 양쪽에서 `/mnt/Dataset` 으로 마운트한다. 480GB 짜리고, VM 인스턴스가 바뀌어도 NFS
-는 살아남으니 IP 가 바뀌어도 다시 마운트만 하면 자료가 그대로 있다.
-
-볼륨 안 구조는 대략 이렇다:
-
-- `frontier_*` — 수집된 raw HDF5 데모들. 각 폴더가 한 번의 수집 run.
-- `evButtonPush_*_v1/` — 위를 LeRobot v2.1 로 변환한 것들. 학습 입력.
-- `Isaac-GR00T/` — 학습이 실제로 돌아가는 GR00T working tree. fork 와 별도 사본이라 변경
-  시 sync 필요 (fork 가 진실의 출처).
-- `gr00t_configs/` — 학습이 실제로 읽는 모달리티 config 사본. 이것도 fork 의
-  `configs/modality/` 와 별도 사본.
-- `checkpoints_*` — fine-tune 결과 체크포인트들. 각 폴더 안에 step 단위 ckpt 들.
-- `trt_*` — TensorRT 로 변환된 가속 엔진들. Blackwell 계열 GPU 전용이라 다른 GPU 에선 다시
-  빌드해야 한다 (`Isaac-GR00T/scripts/deployment/build_tensorrt_engine.py`).
-
-NFS 용량이 빠듯하다. 480GB 중 보통 20-30GB 정도만 남아 있어서, 새 체크포인트 저장 전
-`df -h /mnt/Dataset` 한 번씩 보고 정리해야 한다. 한 번 학습 도중에 NFS 가 꽉 차서 중간
-체크포인트가 빈 파일로 저장된 적이 있어서 그 뒤로 조심.
-
-## 한 사이클 돌리는 법
-
-`<...>` 부분은 본인 환경에 맞게 채워 넣는 자리.
-
-### 1. 데모 수집
+하드코딩된 경로 대신, 아래 변수를 본인 환경에 맞게 채운 뒤 셸에 export하자. 이후 모든 명령어는 이 변수를 참조한다.
 
 ```bash
-# frontier_simulation 의 teacher 사용 (PR #15)
+# ── 데이터 루트 (학습 데이터, 변환본, 체크포인트가 모두 모이는 곳) ─────────
+export DATA_ROOT="/path/to/your/dataset"          # 예: /mnt/Dataset
+
+# ── 이번 작업 이름 (수집 run, 데이터셋, 체크포인트 폴더명에 쓰임) ──────────
+export RUN_NAME="run_001"                          # 원하는 이름 자유 지정
+export DATASET_NAME="evButtonPush_${RUN_NAME}"    # 변환된 데이터셋 폴더명
+
+# ── 체크포인트 ───────────────────────────────────────────────────────────────
+export CKPT_DIR="${DATA_ROOT}/checkpoints_${RUN_NAME}"
+export CKPT_STEP="step_2000"                       # 실제 저장된 step 이름으로 교체
+
+# ── TensorRT 엔진 (Blackwell GPU용, 없으면 BF16 모드로 실행) ─────────────────
+export TRT_ENGINE="${DATA_ROOT}/trt_${RUN_NAME}/dit_model_bf16.trt"
+
+# ── GR00T 코드 루트 ──────────────────────────────────────────────────────────
+export GROOT_ROOT="${DATA_ROOT}/Isaac-GR00T"      # NFS working tree 경로
+```
+
+> **왜 NFS인가?** (DataCrunch 환경 기준)
+> 학습 데이터와 체크포인트가 크기 때문에(수백 GB) Git으로 관리하지 않고 NFS 볼륨에 별도 보관한다. VM 인스턴스가 교체되어 IP가 바뀌어도 NFS는 유지되므로, 마운트만 다시 하면 데이터가 그대로 있다.
+> DataCrunch 환경이라면: `sudo mount -t nfs -o nconnect=16 <NFS_HOST>:/<NFS_VOLUME> ${DATA_ROOT}`
+
+---
+
+## 코드 구조 — 세 레포, 왜 나뉘었는가
+
+코드가 세 레포에 흩어진 이유가 있다. 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
+
+### 1. `skysky0214/Isaac-GR00T` (브랜치: `frontier_groot`)
+
+NVIDIA가 공개한 [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T)의 fork.
+
+`n1.6-release` 태그 위에 5개 커밋만 추가한 가벼운 변경이다. 우리가 추가한 것:
+
+- `view_dropout` 옵션: 학습 중 카메라 view를 무작위로 가려서 모델이 특정 카메라에 과의존하지 않게 함
+- TensorRT 엔진 경로 옵션
+- 모델 forward 타이밍 로깅
+- OMY 로봇용 모달리티 config 예시 (`configs/modality/omy_config.py` 등)
+
+### 2. `skysky0214/elevator_button_press_task` (브랜치: `frontier_groot`)
+
+ROBOTIS가 공개한 [robotis_lab](https://github.com/ROBOTIS-GIT/robotis_lab)의 fork.
+
+> **이름이 왜 이상한가?** 이 fork는 원래 ACT(Action Chunking Transformer) 시절, 엘리베이터 task만 신경 쓸 때 만들어진 이름이다. 내용물은 robotis_lab 전체 트리이므로 이름에 혼동되지 말 것.
+
+GR00T용으로 우리가 추가·수정한 주요 파일:
+
+| 파일/폴더 | 설명 |
+|---|---|
+| `source/.../assets/robots/Frontier.py` | Frontier 로봇 자산 정의 (USD 경로, 관절 한계, 액추에이터 등) |
+| `source/.../OMY/elevator_call_v2_aux/` | GR00T 학습용 Isaac Lab task 정의 (버튼의 카메라 픽셀 좌표 등 보조 관측 포함) |
+| `scripts/data_conversion/hdf5_to_v1.py` | 수집된 HDF5 → LeRobot v2.1 변환 스크립트 |
+| `scripts/sim2real/imitation_learning/inference/inference_demos.py` | 학습된 정책 평가 스크립트 (888줄, 7개 helper 모듈로 모듈화 완료) |
+| `configs/modality/omy_config.py` 등 | GR00T 모달리티 정의 (카메라 3개, state, action 차원) |
+
+> **task가 두 개 공존한다.** `source/.../OMY/elevator_call/`(구버전)과 `elevator_call_v2_aux/`(GR00T용)이 둘 다 있다. **GR00T 파이프라인은 반드시 `_v2_aux` 쪽**을 써야 한다. gym ID에 `-Aux-`가 붙어 있으면 맞다. 구버전은 ACT 시절 재현용으로 남겨뒀다.
+
+### 3. `ROBOTIS-move/frontier_simulation` (사내 레포, 두 브랜치)
+
+ROBOTIS-move org 멤버만 접근 가능. 두 브랜치를 각각 다른 목적으로 사용한다.
+
+| 브랜치 | 역할 |
+|---|---|
+| `feature-frontier-teacher` | 데모 수집 teacher 스크립트 (PR #15). 진입점: `script/isaac_sim/example/diffik_teacher_jointpos_frontier.py` + `frontier_helpers/` 패키지 |
+| `feature-zenoh-inference-groot` | 추론 시 시뮬↔모델 서버 연결용 Zenoh 브리지 + 5층 엘리베이터 USD 자산 |
+
+---
+
+## 4단계 파이프라인
+
+환경 변수를 export한 상태에서 실행한다.
+
+### 1단계 — 데모 수집
+
+```bash
 python script/isaac_sim/example/diffik_teacher_jointpos_frontier.py \
   --N 40 \
-  --robot-lateral-jitter 0.05 --robot-depth-jitter 0.05 \
-  --out /mnt/Dataset/<run-name>/
+  --robot-lateral-jitter 0.05 \
+  --robot-depth-jitter 0.05 \
+  --out ${DATA_ROOT}/${RUN_NAME}/
 ```
 
-5단계 trajectory (approach → press → hold → retract → home) 로 N 개 에피소드 자동 생성.
-출력은 HDF5. `--robot-*-jitter` 로 로봇 초기 위치를 무작위화 — 데이터 다양성 확보.
+5단계 trajectory(approach → press → hold → retract → home)로 40개 에피소드를 자동 생성한다.
 
-### 2. LeRobot v2.1 로 변환
+`--robot-*-jitter` 옵션: 로봇 초기 위치를 무작위화해서 데이터 다양성을 높인다. 값을 키울수록 더 넓은 범위에서 시작 위치가 흩어진다.
+
+### 2단계 — LeRobot v2.1 변환
 
 ```bash
-# robotis_lab fork
 python scripts/data_conversion/hdf5_to_v1.py \
-  --in  /mnt/Dataset/<run-name>/ \
-  --out /mnt/Dataset/<dataset-name>_v1/
+  --in  ${DATA_ROOT}/${RUN_NAME}/ \
+  --out ${DATA_ROOT}/${DATASET_NAME}_v1/
 ```
 
-float32 강제, `modality.json` 작성, 영상 재인코딩까지 한꺼번에.
+float32 강제, `modality.json` 작성, 영상 재인코딩까지 한 번에 처리한다.
 
-### 3. fine-tune
+### 3단계 — Fine-tune
 
 ```bash
-# Isaac-GR00T fork 안에서
 python gr00t/experiment/launch_finetune.py \
-  --dataset_path /mnt/Dataset/<dataset-name>_v1/ \
-  --output_dir   /mnt/Dataset/checkpoints_<run-name>/ \
+  --dataset_path ${DATA_ROOT}/${DATASET_NAME}_v1/ \
+  --output_dir   ${CKPT_DIR}/ \
   --max_steps 2000 \
   --view_dropout 0.3
 ```
 
-`view_dropout` 은 우리가 추가한 옵션. 학습 중 일부 카메라 view 를 무작위로 가려서 모델이
-한 카메라에 과의존하지 않게 한다.
+`view_dropout`은 우리가 추가한 옵션이다(NVIDIA 원본에 없음). 학습 중 카메라 view를 무작위로 가린다.
 
-### 4. 추론 (3 프로세스, 순서 중요)
+> **학습 전 디스크 여유 확인**: 체크포인트가 크기 때문에 저장 공간이 부족하면 ckpt가 빈 파일로 저장된다. 학습 시작 전 반드시 확인.
+> ```bash
+> df -h ${DATA_ROOT}
+> ```
 
-같은 컨테이너 안에서 셸 셋으로 띄운다. A → B → C 순서.
+### 4단계 — 추론 및 평가
+
+추론은 **3개의 프로세스를 순서대로** 띄워야 한다. 셸 3개를 열자.
 
 ```bash
-# A. GR00T 모델 서버 (ZMQ REP socket)
+# [셸 A] GR00T 모델 서버 먼저 실행
 python gr00t/eval/run_gr00t_server.py \
-  --ckpt /mnt/Dataset/checkpoints_<run-name>/<ckpt-step>/ \
+  --ckpt ${CKPT_DIR}/${CKPT_STEP}/ \
   --modality examples/omy_callbutton/omy_config.py
-# 학습된 ckpt 가 Blackwell GPU 용 TRT 엔진으로 변환돼 있다면:
-#   --trt_engine_path /mnt/Dataset/trt_<run>/dit_model_bf16.trt
 
-# B. Zenoh 브리지 (시뮬 ↔ 서버 중계)
+# TRT 엔진이 있다면 아래 옵션 추가:
+# --trt_engine_path ${TRT_ENGINE}
+```
+
+```bash
+# [셸 B] A가 준비된 후 Zenoh 브리지 실행 (시뮬 ↔ 서버 중계)
 python script/isaac_sim/zenoh/zenoh_inference.py --policy groot --use_frontier
+```
 
-# C. Isaac Sim 환경 + 자동 평가
+```bash
+# [셸 C] B가 준비된 후 Isaac Sim 환경 + 자동 평가 실행
 python scripts/sim2real/imitation_learning/inference/inference_demos.py \
   --auto_eval --dump_inference
 ```
 
-B 없이 C 만 띄우면 `inference_demos` 가 첫 `env.step` 도 못 들어간다. 침묵 실패(에러 없이
-그냥 안 진행)라 한참 헤맬 수 있다 — 디버깅하느라 시간 많이 썼던 적 있다.
+> ⚠️ **B를 빠뜨리면 C가 조용히 멈춘다.** 에러 메시지도 없이 첫 `env.step`에서 진행이 안 된다. 3개 프로세스 순서(A → B → C)를 꼭 지키자.
 
-### 추론 속도 참고
+---
 
-GR00T 모델 forward 와 시뮬 step 이 별개로 도는 비동기 구조라, 정책이 한 번 추론을 돌리면
-여러 step 분량의 action chunk 를 받아 와서 그걸 풀며 시뮬을 진행한다. `chunk_len` 이
-trade-off 의 핵심: 크면 모델 호출 빈도가 줄어 부드러운데 reactive 가 떨어지고, 작으면
-reactive 한데 GPU 가 자주 깨어난다.
+## 추론 속도 참고 (Blackwell GPU 1장 기준)
 
-대략적인 측정값 (Blackwell GPU 1장 기준):
+GR00T 모델과 시뮬이 비동기로 돌기 때문에, 모델이 한 번 추론하면 여러 step 분량의 action chunk를 반환하고 시뮬이 그걸 소화한다.
 
-- 모델 forward: ~170ms (BF16, diffusion 4 step)
-- 시뮬 step: ~72ms
-- chunk_len=16 이면 한 사이클이 약 1.15초 → 실효 replan rate 0.87Hz
-- chunk_len=3 까지 줄이면 4.6Hz, GPU 활용률 78% (sweet spot)
+| 항목 | 수치 |
+|---|---|
+| 모델 forward | ~170ms (BF16, diffusion 4 step) |
+| 시뮬 step | ~72ms |
+| chunk_len=16 | 사이클 ~1.15초, replan rate 0.87Hz |
+| chunk_len=3 | 4.6Hz, GPU 활용률 78% (추천 설정) |
 
-자세한 표와 데이터 흐름 다이어그램은 `/home/ub/cosmos_run12/groot_inference_pkg/README.md`
-에 정리해뒀다.
+`chunk_len`이 클수록 모델 호출이 줄고 동작이 부드러워지지만 반응이 느려진다. 작을수록 반응은 빠르지만 GPU가 자주 깨어난다.
 
-## 환경
+자세한 타이밍 표와 데이터 흐름 다이어그램은 `groot_inference_pkg/README.md`를 참고.
 
-DataCrunch 의 GPU 인스턴스에서 작업했다. VM IP 가 자주 바뀌니까 `~/.ssh/config` 에 alias
-(`Gaemi_1`) 로 관리해두면 편하다. SSH 키는 GitHub `skysky0214` 계정과 묶여 있어서 그쪽
-fork 들로의 push 가 키 인증으로 바로 된다.
+---
+
+## 환경 셋업 (DataCrunch 기준)
+
+DataCrunch 외 환경이라면 NFS 마운트 부분만 자신의 스토리지에 맞게 바꾸면 된다.
 
 ```bash
-# NFS 마운트 (호스트에서 먼저)
-sudo mkdir -p /mnt/Dataset
-sudo mount -t nfs -o nconnect=16 nfs.fin-03.datacrunch.io:/Dataset-789fd28b /mnt/Dataset
+# 1. NFS 마운트 (호스트에서 먼저, 컨테이너 기동 전)
+sudo mkdir -p ${DATA_ROOT}
+sudo mount -t nfs -o nconnect=16 <NFS_HOST>:/<NFS_VOLUME> ${DATA_ROOT}
 
-# 컨테이너 기동 (이미지 isaac-sim-custom:5.1.0)
+# 2. 컨테이너 기동
 docker start isaac-sim
 ```
 
-NFS 가 호스트에 마운트된 다음 컨테이너를 켜야 컨테이너 안에서 `/mnt/Dataset` 이 보인다.
-순서 거꾸로 가면 컨테이너 재시작.
+> **순서 주의**: NFS를 호스트에 먼저 마운트한 뒤 컨테이너를 켜야 컨테이너 안에서 데이터 폴더가 보인다. 순서가 바뀌면 컨테이너를 재시작해야 한다.
 
-GPU 는 **RTX PRO 6000 Blackwell (SM 12.0)** 정도면 잘 돈다. **B300 (SM 10.3) 은 피할 것** —
-Isaac Sim 의 bundled CUDA 12.8 nvrtc 가 SM 10.3 을 지원 안 한다. `TORCH_CUDA_ARCH_LIST` 도,
-`PYTORCH_JIT=0` 도 우회가 안 됐다. DataCrunch 에서 VM 잡을 때 GPU 모델 꼭 확인.
+### GPU 주의사항
 
-학습에 쓰는 DeepSpeed 가 빌드 시 `nvcc` 를 찾는데 컨테이너에 nvcc 가 없다. fake shim 을
-만들어주면 우회된다 (컨테이너 재시작 시 사라지니 다시 만들기):
+- **권장**: RTX PRO 6000 Blackwell (SM 12.0) 계열
+- **피할 것**: B300 (SM 10.3) — Isaac Sim의 bundled CUDA 12.8 nvrtc가 SM 10.3을 지원하지 않는다. `TORCH_CUDA_ARCH_LIST`나 `PYTORCH_JIT=0`으로도 우회되지 않는다.
+
+DataCrunch에서 VM 신청 시 GPU 모델을 꼭 확인하자.
+
+### DeepSpeed nvcc 우회 (컨테이너 재시작마다 필요)
+
+학습에 쓰는 DeepSpeed가 빌드 시 `nvcc`를 찾는데 컨테이너에 없다. fake shim으로 우회한다.
 
 ```bash
 mkdir -p /tmp/fake_cuda/bin
@@ -219,67 +243,56 @@ chmod +x /tmp/fake_cuda/bin/nvcc
 export PATH=/tmp/fake_cuda/bin:$PATH
 ```
 
-## 어디까지 했는지
-
-학습은 데이터 변형(스폰 jitter 범위·LED 처리 차이 등) 별로 여러 변종을 만들어 비교
-중이었다. 각 데이터셋에 대해 `/mnt/Dataset/checkpoints_<variant>/` 아래에 fine-tune 결과가
-들어 있고, 그 안에 step 단위 ckpt 들이 쌓여 있다. 일부 데이터셋들을 합친 combined 학습이
-진행 중이었고 그건 아직 미완. TensorRT 변환은 가장 안정적인 ckpt 하나로 한 번 빌드해서
-동작 확인.
-
-코드 쪽 정리는 끝났다 — 절대 경로는 환경변수로 빼서 다른 머신에서도 동작하게 하고,
-`inference_demos.py` 모듈화 끝내고, 운영 로그는 `_log` wrapper 로 묶어서 `VERBOSE=0` 으로
-입막음 가능하게 했다.
-
-남은 후보:
-
-- Combined 학습 마저 끝내고 평가
-- 진짜 가치 있는 ckpt 와 데이터셋은 HuggingFace Hub 으로 옮기는 게 안전 (지금은 NFS 사본만
-  존재. 인스턴스가 죽으면 NFS 도 같이 위태로워질 수 있음)
-- 실기 로봇 이식 검토 — 지금까지는 전부 시뮬. sim2real gap, latency, contact 처리 등 검증
-  필요
-
-## 처음 보면 헷갈릴 만한 것들
-
-**fork 이름이 일관성 없다.** robotis_lab fork 의 이름이 `elevator_button_press_task`. ACT
-시절에 그 task 만 신경 써서 그렇게 지었던 게 그대로 남았다. 안 내용물은 robotis_lab 전체.
-
-**같은 파일이 두 군데 있을 수 있다.** 모달리티 config 와 Isaac-GR00T 코드가 그렇다 — fork
-에 한 사본, NFS 의 working tree 에 한 사본. 학습 스크립트는 NFS 사본을 읽는다. fork 가
-진실의 출처 (소스 컨트롤 받음). 변경 시 둘 다 sync 해야 학습에 반영된다.
-
-**OMY task 가 두 가지가 같이 있다.** `source/.../OMY/` 폴더에 `elevator_call/` 과
-`elevator_call_v2_aux/` 가 공존한다. GR00T 파이프라인은 무조건 `_v2_aux` 쪽 (gym ID 에
-`-Aux-` 가 붙은 것들). 구버전은 ACT 시절 결과 재현용으로 남겨뒀다.
-
-**3-프로세스 추론은 순서가 있다.** A(server) → B(zenoh) → C(inference_demos). B 안 띄우면
-C 가 침묵 실패한다. 에러 메시지가 거의 없어서 한참 모를 수 있다.
-
-**ACT 시절 자산이 fork 안에 살아 있다.** `scripts/act/`, `scripts/imitation_learning/act/`,
-`task/`, `source/.../OMY/elevator_call/`, `checkpoints/` (체크포인트만 376MB). GR00T 는
-안 쓰지만 일부러 안 지웠다. 필요 없다고 판단되면 따로 정리.
-
-## 알아두면 도움 되는 함정들
-
-NFS 가 학습 도중 꽉 차면 그 시점 ckpt 가 빈 파일로 저장된다. 저장 전 `df` 한 번씩.
-
-`docker commit` 이 한 번 깨진 적 있다 — containerd image layer digest 가 손상돼서. 우회는
-`docker export` 로 했다 (live FS 를 읽으니 image store 안 거치고 빠져나옴).
-
-`.gitignore` 에 `*.usd` 가 들어 있어서 fork 에 USD 추가하려면 `git add -f`. 5층 엘리베이터
-USD (58KB) 가 그렇게 들어갔다 — 작아서 LFS 안 썼다.
-
-컨테이너 안에 git 이 안 깔려 있다. git 작업은 호스트에서.
-
-DataCrunch VM 이 바뀌면 같은 IP 에 다른 호스트 키가 들러붙어서 SSH 가 거부할 때가 있다.
-`ssh-keygen -R <ip>` 후 재접속.
-
-`elevator_button_press_task` 를 clone 하면 `data/object/*.usd` 16개에 대해 "should have
-been pointers but weren't" LFS 경고가 뜬다. 우리 변경 아니고 옛 작업물 — 그 USD 들을 실제
-쓸 일 있으면 LFS 정리가 필요하지만 GR00T 파이프라인엔 영향 없다.
+컨테이너를 재시작하면 사라지므로, 학습 전마다 다시 실행해야 한다.
 
 ---
 
-추론 파이프라인을 코드 수준에서 더 자세히 보고 싶으면
-`/home/ub/cosmos_run12/groot_inference_pkg/README.md` 에 timing 표, chunk_len trade-off,
-데이터 흐름 다이어그램이 정리돼 있다.
+## 파일이 두 군데 있는 것들 (주의)
+
+모달리티 config(`omy_config.py`)와 Isaac-GR00T 코드가 fork와 NFS working tree 두 군데에 각각 사본으로 존재한다.
+
+- **fork**: 소스 컨트롤의 진실의 출처(source of truth)
+- **NFS working tree**: 학습 스크립트가 실제로 읽는 파일
+
+변경 시 **둘 다 동기화**해야 학습에 반영된다. 한쪽만 바꾸면 왜 반영이 안 되는지 한참 헤맬 수 있다.
+
+---
+
+## 현재 진행 상황
+
+- 데이터 변형(스폰 jitter 범위, LED 처리 방식 등) 별로 여러 변종을 만들어 비교 중
+- 일부 데이터셋을 합친 combined 학습이 진행 중이었으나 미완
+- TensorRT 변환: 가장 안정적인 ckpt 하나로 빌드해서 동작 확인 완료
+- 코드 정리 완료: 절대 경로 환경변수화, `inference_demos.py` 모듈화(888줄), 운영 로그 `VERBOSE=0` 제어 가능
+
+### 남은 작업
+
+- Combined 학습 완료 후 평가
+- 가치 있는 ckpt와 데이터셋을 HuggingFace Hub으로 이전 (현재 NFS 사본만 존재, 인스턴스 장애 시 위험)
+- 실기 로봇 이식 검토 — 현재까지 전부 시뮬. sim2real gap, latency, contact 처리 등 검증 필요
+
+---
+
+## 자주 걸리는 함정들
+
+| 상황 | 원인 / 해결 |
+|---|---|
+| C(inference_demos)가 아무 반응 없이 멈춤 | B(Zenoh 브리지)를 안 띄운 것. A → B → C 순서 지키기 |
+| 체크포인트가 빈 파일로 저장됨 | 학습 중 디스크 꽉 참. 학습 전 `df -h ${DATA_ROOT}` 확인 |
+| fork에 USD 파일 추가 안 됨 | `.gitignore`에 `*.usd`가 있음. `git add -f`로 강제 추가 |
+| 컨테이너 안에서 git 명령 안 됨 | 컨테이너에 git 미설치. git 작업은 호스트에서 |
+| SSH 접속 거부 (VM 교체 후) | 같은 IP에 호스트 키가 바뀐 것. `ssh-keygen -R <ip>` 후 재접속 |
+| `elevator_button_press_task` clone 시 LFS 경고 | `data/object/*.usd` 16개 관련. GR00T 파이프라인에는 영향 없음 |
+| `docker commit` 실패 (image layer digest 손상) | `docker export`로 우회 (image store를 안 거침) |
+
+---
+
+## ACT 시절 자산에 대해
+
+fork 안에 ACT(Action Chunking Transformer) 시절 자산이 남아 있다. GR00T 파이프라인에서는 쓰지 않으나 일부러 지우지 않았다.
+
+- `scripts/act/`, `scripts/imitation_learning/act/`
+- `source/.../OMY/elevator_call/` (구버전 task)
+- `checkpoints/` 내 ACT 체크포인트 (~376MB)
+
+ACT 결과를 재현해야 할 일이 생기면 이쪽을 본다. 필요 없다고 판단되면 그때 정리해도 된다.
