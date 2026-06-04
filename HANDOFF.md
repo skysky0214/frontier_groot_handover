@@ -71,8 +71,7 @@ export GROOT_ROOT="${DATA_ROOT}/Isaac-GR00T"      # NFS working tree 경로
 ---
 
 ## 코드 구조 
-
-코드가 세 레포에 흩어져 있는데, 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
+코드가 세 레포에 흩어진 이유- 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
 
 ### 1. `skysky0214/Isaac-GR00T` (브랜치: `frontier_groot`)
 
@@ -88,6 +87,7 @@ NVIDIA가 공개한 [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T)의 fork
 ### 2. `skysky0214/elevator_button_press_task` (브랜치: `frontier_groot`)
 
 ROBOTIS가 공개한 [robotis_lab](https://github.com/ROBOTIS-GIT/robotis_lab)의 fork.
+
 
 GR00T용으로 우리가 추가·수정한 주요 파일:
 
@@ -227,6 +227,31 @@ pip install ikpy
 ```
 
 컨테이너를 재시작해도 pip 설치는 유지되므로 최초 1회만 하면 된다.
+PYTHONPATH — isaac_sim 패키지 인식시키기
+task를 실행하다 보면 아래 에러가 처음 나올 수 있다.
+ModuleNotFoundError: No module named 'isaac_sim'
+왜 나는가: _v2_aux task가 내부적으로 isaac_sim이라는 패키지를 import하는데, 이 패키지는 frontier_simulation 레포(feature-zenoh-inference-groot 브랜치)의 source/isaac_sim 폴더에 있다. robotis_lab 컨테이너에는 이 레포가 마운트되어 있지 않으므로 Python이 패키지를 찾지 못한다.
+해결 방법:
+bash# 1. frontier_simulation 레포를 받아둔 곳에서 source/isaac_sim을 복사 (최초 1회)
+cp -r /path/to/frontier_simulation/source/isaac_sim /workspace/robotis_lab/source/
+
+# 2. 복사한 경로를 PYTHONPATH에 등록
+export PYTHONPATH=/workspace/robotis_lab/source
+isaaclab.sh -p로 스크립트를 실행할 때 이 환경변수가 그대로 전달된다.
+```
+
+### ELEVATOR_USD_DIR — USD 경로 하드코딩 우회
+
+`pool.py` 안에 `ELEVATOR_USD_DIR`가 특정 절대 경로로 박혀 있어서, import 시점에 해당 경로가 없으면 `ELEVATOR_CFG` 초기화 자체가 실패한다.
+
+**해결**: 환경변수로 override할 수 있도록 코드가 수정되어 있다. 실행 전 실제 USD가 있는 경로를 지정해주면 된다.
+
+```bash
+# 엘리베이터 USD 100개가 있는 경로로 지정
+export ELEVATOR_USD_DIR=/workspace/robotis_lab/third_party/elevator_setup
+```
+
+> 위 두 환경변수(`PYTHONPATH`, `ELEVATOR_USD_DIR`)는 셸을 새로 열 때마다 다시 export해야 한다. 매번 하기 번거로우면 컨테이너의 `~/.bashrc`에 추가해두자.
 
 ### GPU 주의사항
 
