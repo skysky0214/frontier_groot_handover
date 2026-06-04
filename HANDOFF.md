@@ -68,15 +68,11 @@ export TRT_ENGINE="${DATA_ROOT}/trt_${RUN_NAME}/dit_model_bf16.trt"
 export GROOT_ROOT="${DATA_ROOT}/Isaac-GR00T"      # NFS working tree 경로
 ```
 
-> **왜 NFS인가?** (DataCrunch 환경 기준)
-> 학습 데이터와 체크포인트가 크기 때문에(수백 GB) Git으로 관리하지 않고 NFS 볼륨에 별도 보관한다. VM 인스턴스가 교체되어 IP가 바뀌어도 NFS는 유지되므로, 마운트만 다시 하면 데이터가 그대로 있다.
-> DataCrunch 환경이라면: `sudo mount -t nfs -o nconnect=16 <NFS_HOST>:/<NFS_VOLUME> ${DATA_ROOT}`
-
 ---
 
-## 코드 구조 — 세 레포, 왜 나뉘었는가
+## 코드 구조 
 
-코드가 세 레포에 흩어진 이유가 있다. 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
+코드가 세 레포에 흩어져 있는데, 각각 다른 upstream(NVIDIA, ROBOTIS, 사내)을 따라가야 해서 하나로 합칠 수 없었다.
 
 ### 1. `skysky0214/Isaac-GR00T` (브랜치: `frontier_groot`)
 
@@ -92,8 +88,6 @@ NVIDIA가 공개한 [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T)의 fork
 ### 2. `skysky0214/elevator_button_press_task` (브랜치: `frontier_groot`)
 
 ROBOTIS가 공개한 [robotis_lab](https://github.com/ROBOTIS-GIT/robotis_lab)의 fork.
-
-> **이름이 왜 이상한가?** 이 fork는 원래 ACT(Action Chunking Transformer) 시절, 엘리베이터 task만 신경 쓸 때 만들어진 이름이다. 내용물은 robotis_lab 전체 트리이므로 이름에 혼동되지 말 것.
 
 GR00T용으로 우리가 추가·수정한 주요 파일:
 
